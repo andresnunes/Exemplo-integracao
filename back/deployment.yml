@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-backend-deploy
+  namespace: default      # Use 'todo-ns' se criou o namespace no passo anterior
+  labels:
+    app: todo-backend
+spec:
+  replicas: 2             # Define que queremos 2 cópias rodando (alta disponibilidade)
+  selector:
+    matchLabels:
+      app: todo-backend
+  template:
+    metadata:
+      labels:
+        app: todo-backend
+    spec:
+      containers:
+        - name: todo-container
+          # Nome da imagem que construímos
+          image: todo-java-api:latest
+          
+          # IMPORTANTE PARA KIND: 
+          # 'Never' = Usa a imagem local carregada via 'kind load'.
+          # 'Always' = Tenta baixar do Docker Hub (use isso em produção).
+          imagePullPolicy: Never 
+          
+          ports:
+            - containerPort: 8080
+          
+          # Variáveis de Ambiente para conectar no Banco (ajuste conforme seu banco)
+          env:
+            - name: SPRING_DATASOURCE_URL
+              # 'postgres-svc' é o nome do Service do banco de dados no K8s
+              value: jdbc:postgresql://postgres-svc:5432/todo_db
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: postgres
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: update
+          
+          # Configura limites de recursos (Boas práticas)
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# Configuração do Serviço (Rede)
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-backend-svc
+  namespace: default    # Mesmos namespace do Deployment
+spec:
+  type: ClusterIP       # IP interno do cluster (padrão)
+  selector:
+    app: todo-backend   # Conecta no Deployment acima
+  ports:
+    - protocol: TCP
+      port: 8080        # Porta que o Serviço expõe
+      targetPort: 8080  # Porta que o Container escuta

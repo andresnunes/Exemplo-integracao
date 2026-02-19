@@ -1,0 +1,47 @@
+services:
+  # Serviço da Aplicação Java
+  api:
+    build: .
+    container_name: todo-backend-java
+    ports:
+      - "8080:8080" # Porta Host:Porta Container
+    environment:
+      # Configurações do Spring Boot para conectar no serviço 'db' abaixo
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/todo_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      db:
+        condition: service_healthy # Só inicia o Java quando o banco estiver pronto
+    networks:
+      - todo-network
+
+  # Serviço do Banco de Dados PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: todo-postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=todo_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432" # Opcional: só descomente se quiser acessar o banco pelo DBeaver/PgAdmin no host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - todo-network
+    # Healthcheck é crucial para que o Java não tente conectar antes do banco estar de pé
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  todo-network:
+    driver: bridge
